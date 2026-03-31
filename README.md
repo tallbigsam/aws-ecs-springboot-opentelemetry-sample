@@ -82,7 +82,7 @@ Instead of using [CloudFormation nested stacks](https://docs.aws.amazon.com/AWSC
 1. Log in to [Grafana Cloud](https://grafana.com)
 2. Navigate to **Connections** → **OpenTelemetry (OTLP)**
 3. Note your:
-   - **Instance ID** (e.g., `1289964`)
+   - **Instance ID** (e.g., `1111111`)
    - **API Token** (starts with `glc_...`)
    - **OTLP Endpoint** (e.g., `https://otlp-gateway-prod-gb-south-1.grafana.net/otlp`)
 
