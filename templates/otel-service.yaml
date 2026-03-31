@@ -35,6 +35,21 @@ Parameters:
   PrometheusEndpoint:
     Type: String
 
+  GrafanaOtlpEndpoint:
+    Type: String
+    Description: "Grafana Cloud OTLP endpoint (e.g., https://otlp-gateway-prod-gb-south-1.grafana.net/otlp)"
+    Default: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp"
+
+  GrafanaAuthHeader:
+    Type: String
+    Description: "Grafana Cloud auth header (Basic base64(instanceId:apiKey)). Generate with: echo -n 'instanceId:apiKey' | base64"
+    NoEcho: true
+
+  ConfigVersion:
+    Type: String
+    Description: "Change this value to force ECS task replacement on config updates"
+    Default: "1"
+
 
 Resources:
 
@@ -70,38 +85,26 @@ Resources:
           filter:
             metrics:
               include:
-                match_type: strict
+                match_type: regexp
                 metric_names:
-                  - ecs.task.memory.utilized
-                  - ecs.task.memory.reserved
-                  - ecs.task.cpu.utilized
-                  - ecs.task.cpu.reserved
-                  - ecs.task.network.rate.rx
-                  - ecs.task.network.rate.tx
-                  - ecs.task.storage.read_bytes
-                  - ecs.task.storage.write_bytes
+                  - '^ecs\..*'
+                  - '^http\..*'
+                  - '^runtime\.jvm\..*'
 
         exporters:
-          logging:
-            loglevel: info
-          awsxray:
-            region: ${AWS::Region}
-          awsemf:
-            region: ${AWS::Region}
-          awsprometheusremotewrite:
-            endpoint: ${PrometheusEndpoint}api/v1/remote_write
-            aws_auth:
-              region: ${AWS::Region}
-              service: "aps"
+          otlphttp/grafana:
+            endpoint: ${GrafanaOtlpEndpoint}
+            headers:
+              Authorization: ${GrafanaAuthHeader}
 
         service:
           pipelines:
             traces:
               receivers: [ otlp ]
-              exporters: [ awsxray ]
+              exporters: [ otlphttp/grafana ]
             metrics:
               receivers: [ otlp ]
-              exporters: [ awsemf, awsprometheusremotewrite ]
+              exporters: [ otlphttp/grafana ]
 
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -241,6 +244,9 @@ Resources:
             - ContainerPort: !FindInMap [ Otel, Ports, grpc]
             - ContainerPort: !FindInMap [ Otel, Ports, xray]
             - ContainerPort: !FindInMap [ Otel, Ports, stastd]
+          Environment:
+            - Name: CONFIG_VERSION
+              Value: !Ref ConfigVersion
           Secrets:
             - Name: AOT_CONFIG_CONTENT
               ValueFrom: !Ref AotConfigParameter
